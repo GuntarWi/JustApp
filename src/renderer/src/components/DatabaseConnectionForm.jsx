@@ -75,17 +75,14 @@ const DatabaseConnectionForm = ({ clientType, onSave }) => {
         />
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700">Database</label>
-        <select
-          value={database}
-          onChange={(e) => setDatabase(e.target.value)}
-          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black"
-        >
-          {databases.map(db => (
-            <option key={db} value={db}>{db}</option>
-          ))}
-        </select>
-      </div>
+      <label className="block text-sm font-medium text-gray-700">Database</label>
+      <input
+        type="text"
+        value={database}
+        onChange={(e) => setDatabase(e.target.value)}
+        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black"
+      />
+    </div>
       <div className='flex grid-cols-2'>
       <button
               type="submit"
