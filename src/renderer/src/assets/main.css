@@ -1,0 +1,36 @@
+@import './base.css';
+
+/* src/renderer/src/index.css */
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  font-family: "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif; 
+  overflow: hidden;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+
+
+.glass-effect {
+  background: rgba(255, 255, 255, 0.2); /* Adjust the white background opacity for the frosted effect */
+  backdrop-filter: blur(5px); /* Blur effect for the background */
+  border-radius: 10px; /* Optional: for rounded corners */
+  padding: 10px; /* Optional: for some spacing inside the container */
+  border: 1px solid rgba(255, 255, 255, 0.3); /* Optional: for a subtle border */
+}
+
+
+/* Add to src/renderer/src/index.css or src/renderer/src/assets/main.css */
+nav ul li a {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+  font-size: 15px;
+  font-weight: 800; /* Increased font-weight for boldness */
+  letter-spacing: 0.05em;
+}
