@@ -9,6 +9,7 @@ module.exports = {
         sans: ['Roboto', 'Arial', 'sans-serif'],
         serif: ['Merriweather', 'Georgia', 'serif'],
         mono: ['Menlo', 'Monaco', 'monospace'],
+        inter: ['Inter', 'sans-serif']
       },
     },
   },

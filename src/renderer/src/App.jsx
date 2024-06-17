@@ -1,4 +1,9 @@
 import React from 'react';
+import '@fontsource/inter'; // Defaults to weight 400
+import '@fontsource/inter/400.css'; // Normal weight
+import '@fontsource/inter/500.css'; // Medium weight
+import '@fontsource/inter/600.css'; // Semi-bold weight
+import '@fontsource/inter/700.css'; // Bold weight
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Client1 from './pages/Client1';
 import Client2 from './pages/Client2';

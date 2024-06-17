@@ -28,9 +28,36 @@ body {
 
 
 /* Add to src/renderer/src/index.css or src/renderer/src/assets/main.css */
-nav ul li a {
+nav ul li  {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
   font-size: 15px;
   font-weight: 800; /* Increased font-weight for boldness */
   letter-spacing: 0.05em;
+}
+
+
+.border-r-gray-opacity {
+  border-right-color: rgba(107, 114, 128, 0.09); /* Gray-500 with 50% opacity */
+}
+
+
+.border-top-offset {
+  position: relative;
+}
+.border-top-offset::before {
+  content: "";
+  position: absolute;
+  top: 5px; /* 5px from the top */
+  right: 0;
+  height: 100%;
+  width: 2px; /* Width of the border */
+  background-color: rgba(107, 114, 128, 0.5); /* Tailwind's gray-500 with 50% opacity */
+}
+
+
+.ConnectionArrow {
+  position: absolute;
+  left: 185px;
+  top:56px;
+
 }

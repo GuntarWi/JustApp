@@ -3,15 +3,22 @@ import React from 'react';
 import DatabaseConnectionForm from '../components/DatabaseConnectionForm';
 import QueryManager from '../components/QueryManager';
 import TableViewer from '../components/TableViewer';
+import TableList from '../components/TableList';
+
 
 const Connection = ({ clientType }) => {
   return (
-    <div className="flex flex-col md:flex-row md:space-x-4 w-full">
-      <div className="basis-1/4">
-        <DatabaseConnectionForm clientType={clientType} />
+    <div className="flex w-full">
+      <div className="grid-cols-1 text-wrap">
+      <TableList className=""key={clientType} clientType={clientType} />
       </div>
-      <div className="basis-1/1">
+      <div className="grid-cols-1">
+    
+      <DatabaseConnectionForm clientType={clientType} onSave={(details) => console.log('Connection details saved!', details)} />
+      </div>
+      <div className="grid-cols-1">
         <QueryManager clientType={clientType} />
+        
       </div>
 
     </div>

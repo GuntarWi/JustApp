@@ -14,14 +14,14 @@ const Client1 = () => {
   ];
 
   return (
-    <div className=" w-full">
-      <nav className="bg-gray-800 text-white shadow-md">
-        <ul className="flex m-0 p-0 list-none ">
+    <div className=" w-full h-full">
+      <nav className="bg-white border-r border-r-gray-opacity ">
+        <ul className="flex m-0 p-0 list-none relative -left-12">
           {tabs.map((tab) => (
             <li key={tab.name}>
               <Link
                 to={tab.path}
-                className={`block p-2 font-sans uppercase font-medium text-white ${location.pathname.endsWith(tab.path) ? 'bg-gray-600' : 'hover:bg-gray-900'} `}
+                className={`min-w-24 block pl-5 p-2 font-inter font-medium text-xs text-slate-700 ${location.pathname.endsWith(tab.path) ? 'bg-gray-100' : 'hover:bg-gray-100'} `}
               >
                 <div className="flex items-center">
 

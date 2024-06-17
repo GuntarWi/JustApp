@@ -16,11 +16,11 @@
     "build:win": "npm run build && electron-builder --win",
     "build:mac": "npm run build && electron-builder --mac",
     "build:linux": "npm run build && electron-builder --linux"
-    
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.0",
     "@electron-toolkit/utils": "^3.0.0",
+    "@fontsource/inter": "^5.0.18",
     "autoprefixer": "^10.4.19",
     "clickhouse": "^2.6.0",
     "dotenv": "^16.4.5",

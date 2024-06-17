@@ -12,17 +12,17 @@ const Sidebar = () => {
 
   return (
     <>
-    <aside id="cta-button-sidebar" className="h-screen transition-transform -translate-x-full sm:translate-x-0" aria-label="Sidebar">
-      <div className="w-16 bg-gray-800 text-white h-screen p-4 flex justify-center">
-        <h1 className="text-2xl font-bold mb-6">
+    <aside id="cta-button-sidebar" className="h-screen relative -bottom-7" aria-label="Sidebar">
+      <div className="m-0.1 bg-white border-r border-r-gray-opacity text-white h-screen p-2 flex justify-center">
+        <h1 className="text-2xl font-bold">
           
         </h1>
-        <ul className="space-y-4 ">
+        <ul className="mt-20 space-y-4 ">
           {clients.map((client) => (
             <li key={client.name}>
               <Link
                 to={client.path}
-                className={` font-medium text-gray-400  block p-2 rounded text-center focus:ring-2 focus:ring-blue-500 ${location.pathname.startsWith(client.path) ? 'bg-gray-600' : 'hover:bg-gray-700 '}`}
+                className={` font-inter font-bold text-xs text-slate-600  block p-1 rounded text-center focus:ring-2 focus:ring-blue-500 ${location.pathname.startsWith(client.path) ? 'bg-zinc-300 bg-opacity-30' : 'hover:bg-zinc-400 '}`}
               >
                 {client.name}
               </Link>

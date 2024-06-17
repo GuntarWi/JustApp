@@ -164,7 +164,7 @@ const QueryManager = ({ clientType }) => {
       </div>
      
       <div>
-      {queryResult && <pre className="grid grid-cols-subgrid gap-4 col-span-3 mt-4 bg-gray-100 p-4 rounded flex">{JSON.stringify(queryResult, null, 2)}</pre>}
+      {queryResult && <pre className="grid grid-cols-subgrid gap-4 col-span-3 mt-4 bg-gray-100 p-4 rounded ">{JSON.stringify(queryResult, null, 2)}</pre>}
       </div>
     </div>
   );

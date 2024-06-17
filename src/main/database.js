@@ -80,4 +80,15 @@ const testClickhouseConnection = async (connectionDetails) => {
   }
 };
 
+// In src/main/database.js
+async function getTables(client) {
+  try {
+    const res = await client.query("SELECT table_name FROM information_schema.tables WHERE table_schema='public'");
+    return res.rows.map(row => row.table_name);
+  } catch (error) {
+    console.error('Error fetching tables:', error);
+    throw error; // Rethrow to handle in renderer process
+  }
+}
+
 export { getPgClient, getMysqlClient, getClickhouseClient, testPgConnection, testMysqlConnection, testClickhouseConnection };
