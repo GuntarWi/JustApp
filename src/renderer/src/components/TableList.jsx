@@ -46,15 +46,15 @@ const TableList = ({ clientType }) => {
         )}
         <h3 className="pl-1 text-xs">{connectionStatus}</h3>
       </div>
-      <div>
-        <div className="pl-2 pt-5 flex">
-          <TbDatabase />
-          <h3 className="pl-1 text-sm">Available Tables</h3>
+      <div >
+        <div className="pl-2 pt-5 flex justify-start">
+          <TbDatabase className="mt-0.5" />
+          <h3 className="pl-1 pt-0.5 text-sm text-black">Available Tables</h3>
         </div>
-        <ul className="pl-6 pt-3">
+        <ul className="pl-6 pt-3 text-xs">
           {tables.map((table, index) => (
-            <li key={index} className="text-base flex items-center">
-              <CiViewTable className="text-xl pr-1" />
+            <li key={index} className="flex items-center mt-0.5">
+              <CiViewTable className="pr-1 w-6" />
               {table}
             </li>
           ))}

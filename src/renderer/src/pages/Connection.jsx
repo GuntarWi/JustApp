@@ -8,8 +8,8 @@ import TableList from '../components/TableList';
 
 const Connection = ({ clientType }) => {
   return (
-    <div className="flex w-full">
-      <div className="grid-cols-1 text-wrap">
+    <div className="flex w-full h-full">
+      <div className="grid-cols-1 text-wrap border-r border-neutral-100 min-w-188">
       <TableList className=""key={clientType} clientType={clientType} />
       </div>
       <div className="grid-cols-1">

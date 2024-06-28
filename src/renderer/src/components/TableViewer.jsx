@@ -9,7 +9,7 @@ const TableViewer = ({ data }) => {
   const headers = Object.keys(data[0]);
 
   return (
-    <div className="overflow-auto">
+    <div className="overflow-auto ">
       <table className="min-w-full bg-white">
         <thead>
           <tr>
