@@ -5,6 +5,9 @@ import { sql } from '@codemirror/lang-sql';
 import { dracula } from '@uiw/codemirror-theme-dracula';
 import Modal from 'react-modal';
 import QueryResultTable from './QueryResultTable';
+import IconButton from "./IconButton";
+import { TbMinus, TbCircleX } from "react-icons/tb";
+import QueryCard from "./UI/QueryCard";
 
 const QueryManager = ({ clientType }) => {
   const [queries, setQueries] = useState([]);
@@ -15,6 +18,7 @@ const QueryManager = ({ clientType }) => {
   const [editingQuery, setEditingQuery] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isResultModalOpen, setIsResultModalOpen] = useState(false); // State for result modal
 
   useEffect(() => {
     loadQueries();
@@ -46,7 +50,7 @@ const QueryManager = ({ clientType }) => {
       return;
     }
 
-    const newQuery = { name: sanitizedQueryName, text: sanitizedQueryText };
+    const newQuery = { name: sanitizedQueryName, text: sanitizedQueryText, createdAt: new Date().toISOString() };
     let updatedQueries;
     if (editingQuery) {
       updatedQueries = queries.map(q => q.name === editingQuery.name ? newQuery : q);
@@ -95,6 +99,7 @@ const QueryManager = ({ clientType }) => {
       console.log('Query Result:', result);
       setQueryResult(result);
       setError(null);
+      setIsResultModalOpen(true); // Open result modal on success
     } catch (error) {
       setError(`Error: ${error.message}`);
       console.error('Query Execution Error:', error);
@@ -111,100 +116,92 @@ const QueryManager = ({ clientType }) => {
 
   const openModal = () => setIsModalOpen(true);
   const closeModal = () => setIsModalOpen(false);
+  const closeResultModal = () => setIsResultModalOpen(false); // Close result modal
 
   return (
-    <div className="ml-10 w-full grid grid-cols-1 gap-4 margin-top-70">
+    <div className="ml-10 w-full grid grid-cols-1 gap-4 mt-10">
       <div>
-        <div className="flex-1">
-        <h2 className="text-xl font-bold">Manage Queries</h2>
-        {error && <div className="text-red-600">{error}</div>}
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="mb-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-        >
-          <AiOutlinePlus className="mr-2" />
-          Create New Query
-        </button>
-        {showForm && (
-          <>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Query Name</label>
-              <input
-                type="text"
-                value={queryName}
-                onChange={(e) => setQueryName(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Query Text</label>
-              <CodeMirror
-                value={queryText}
-                height="200px"
-                extensions={[sql()]}
-                onChange={(value) => setQueryText(value)}
-                theme={dracula}
-              />
-            </div>
-            <button
-              onClick={openModal}
-              className="mt-4 w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              <AiOutlineExpand className="mr-2" />
-              Expand Editor
-            </button>
-            <button
-              onClick={saveQuery}
-              className="mt-4 w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-gray-700 hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              {editingQuery ? 'Update Query' : 'Save Query'}
-            </button>
-          </>
-        )}
+        <div className="flex-1 max-w-lg">
+          <h2 className="text-xl font-medium text-gray-700 uppercase mb-9">Manage Queries</h2>
+          {error && <div className="text-red-600">{error}</div>}
+          {showForm ? 
+            <IconButton
+              icon={TbMinus}
+              label="Hide"
+              onClick={() => setShowForm(!showForm)}
+              svgClassName="bold-icon-1"
+              btnClassName="button-violet"
+            /> : 
+            <IconButton
+              icon={AiOutlinePlus}
+              label="Create"
+              onClick={() => setShowForm(!showForm)}
+              svgClassName="bold-icon"
+              btnClassName="button-green"
+            />
+          }
+
+          {showForm && (
+            <>
+              <div className="mb-5 mt-5">
+                <label className="block text-sm font-medium text-gray-700">Query Name</label>
+                <input
+                  type="text"
+                  value={queryName}
+                  onChange={(e) => setQueryName(e.target.value)}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black"
+                />
+              </div>
+              <div>
+                <CodeMirror
+                  value={queryText}
+                  height="200px"
+                  extensions={[sql()]}
+                  onChange={(value) => setQueryText(value)}
+                  theme={dracula}
+                />
+              </div>
+              <div className="flex space-x-4 mt-5">
+                <IconButton
+                  icon={AiOutlineExpand}
+                  label="Expand"
+                  onClick={openModal}
+                  svgClassName="bold-icon"
+                  btnClassName="button-blue"
+                />
+
+                <IconButton
+                  icon={AiOutlinePlus}
+                  label={editingQuery ? 'Update' : 'Save'}
+                  onClick={saveQuery}
+                  svgClassName="bold-icon"
+                  btnClassName="button-green"
+                />
+              </div>
+            </>
+          )}
         </div>
         <div className="">
-        <h3 className="text-lg font-semibold mt-6">Saved Queries</h3>
-        <ul className="space-y-2">
-          {queries.map((query) => (
-            <li key={query.name} className="flex justify-between items-center p-2 border border-gray-300 rounded-md">
-              <span>{query.name}</span>
-              <div>
-                <button
-                  onClick={() => executeQuery(query)}
-                  className="inline-flex overflow-hidden text-white bg-gray-700 rounded group h-8 mr-5"
-                >
-                  <span className="h-full px-2 py-2 text-white bg-gray-600 group-hover:bg-purple-600 flex items-center justify-center">
-                    <AiOutlinePlaySquare className="mr-2" />
-                  </span>
-                  <span className="pl-3 pr-4 py-1 text-center">Execute</span>
-                </button>
-                <button
-                  onClick={() => editQuery(query)}
-                  className="inline-flex overflow-hidden text-white bg-gray-700 rounded group h-8 mr-5"
-                >
-                  <span className="h-full px-2 py-2 text-white bg-gray-600 group-hover:bg-purple-600 flex items```jsx
-                  justify-center">
-                    <AiOutlineEdit className="mr-2" />
-                  </span>
-                  <span className="pl-3 pr-4 py-1 text-center">Edit</span>
-                </button>
-                <button
-                  onClick={() => deleteQuery(query)}
-                  className="inline-flex overflow-hidden text-white bg-gray-700 rounded group h-8 mr-5"
-                >
-                  <span className="h-full px-2 py-2 text-white bg-red-400 group-hover:bg-red-500 flex items-center justify-center">
-                    <AiOutlineDelete className="mr-2" />
-                  </span>
-                  <span className="pl-3 pr-4 py-1 text-center">Delete</span>
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
+          <h3 className="text-lg font-semibold mt-6">Saved Queries</h3>
+          <ul className="space-y-2 max-h-full flex flex-wrap overflow-y-scroll">
+            {queries.map((query) => (
+              <li key={query.name} className="flex justify-between items-center p-2 min-w-72">
+                <QueryCard
+                  notificationTitle={query.name}
+                  messageAuthor={clientType}
+                  messageText="Liked your Query"
+                  timeAgo={query.createdAt}
+                  executeQuery={executeQuery}
+                  editQuery={editQuery}
+                  deleteQuery={deleteQuery}
+                  query={query}
+                />
+                <div>
+                </div>
+              </li>
+            ))}
+          </ul>
         </div>
-      </div>
-      <div>
-        <QueryResultTable queryResult={queryResult} />
       </div>
       <Modal
         isOpen={isModalOpen}
@@ -234,18 +231,43 @@ const QueryManager = ({ clientType }) => {
           />
         </div>
         <div className="mt-4">
-          <button
-            onClick={saveQuery}
-            className="w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-gray-700 hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-          >
-            {editingQuery ? 'Update Query' : 'Save Query'}
-          </button>
-          <button
-            onClick={closeModal}
-            className="w-full inline-flex justify-center py-2 px-4 mt-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-          >
-            Close
-          </button>
+          <div className="mt-4 flex space-x-4">
+            <IconButton
+              icon={AiOutlinePlus}
+              label={editingQuery ? 'Update' : 'Save'}
+              onClick={saveQuery}
+              svgClassName="bold-icon"
+              btnClassName="button-green"
+            />
+
+            <IconButton
+              icon={TbCircleX}
+              label="Close"
+              onClick={closeModal}
+              btnClassName="button-red"
+            />
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={isResultModalOpen}
+        onRequestClose={closeResultModal}
+        contentLabel="Query Result"
+        className="modal"
+        overlayClassName="modal-overlay"
+      >
+        <h2 className="text-xl font-bold">Query Result</h2>
+        <div className="mt-4">
+          <QueryResultTable queryResult={queryResult} />
+        </div>
+        <div className="mt-4 flex space-x-4">
+          <IconButton
+            icon={TbCircleX}
+            label="Close"
+            onClick={closeResultModal}
+            btnClassName="button-red"
+          />
         </div>
       </Modal>
     </div>

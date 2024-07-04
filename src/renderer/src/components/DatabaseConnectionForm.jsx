@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import '../assets/Animation.css';
 import { AiOutlineLink, AiOutlineUser, AiOutlineNumber, AiOutlineSave, AiOutlineLeft, AiOutlineRight } from 'react-icons/ai'; // Import icons from react-icons
+import { TbArrowBadgeRight ,TbArrowBadgeLeft } from "react-icons/tb";
+import IconButton from "./IconButton";
 
 const DatabaseConnectionForm = ({ clientType, onSave }) => {
   const [host, setHost] = useState('');
@@ -36,26 +39,24 @@ const DatabaseConnectionForm = ({ clientType, onSave }) => {
     }
   };
 
-
   const toggleFormVisibility = () => {
     setIsFormVisible(!isFormVisible);
   };
 
   return (
-    <div className="ml-10 mt-10">
-      <div className="flex items-center justify-between mb-4">
+    <div className="ml-10 mt-10 ">
+      <div className="flex items-center justify-between">
         <button
           onClick={toggleFormVisibility}
-          className="text-gray-700 focus:outline-none  bg-slate-100 p-2 rounded ConnectionArrow"
+          className="text-gray-700 focus:outline-none bg-slate-100 p-1 rounded ConnectionArrow"
         >
-          {isFormVisible ? <AiOutlineLeft className="h-4 w-4" /> : <AiOutlineRight className="h-4 w-4" />}
+          {isFormVisible ? <TbArrowBadgeLeft className="h-5 w-5" /> : <TbArrowBadgeRight className="h-5 w-5" />}
         </button>
       </div>
-      
-      {isFormVisible && (
-        
+
+      <div className={`slide-container ${isFormVisible ? 'visible' : ''}`}>
         <form onSubmit={handleSave} className="space-y-4">
-                <h2 className="text-xl font-medium text-gray-700 uppercase">Connection</h2>
+          <h2 className="text-xl font-medium text-gray-700 uppercase">Connection</h2>
           <div>
             <label className="block text-sm font-medium text-gray-700 uppercase">Host</label>
             <div className="relative">
@@ -127,18 +128,17 @@ const DatabaseConnectionForm = ({ clientType, onSave }) => {
             </div>
           </div>
           <div className="flex col-1">
-            <button
-              type="submit"
-              className="border-0 border-slate-100 inline-flex overflow-hidden text-gray-700 bg-gray-100 rounded group h-8 w-full"
-            >
-              <span className="h-full px-2 py-2 text-white bg-green-500 group-hover:bg-green-600 flex items-center justify-center">
-                <AiOutlineSave className="mr-2" />
-              </span>
-              <span className=" py-1 text-center justify-center w-full uppercase">Save</span>
-            </button>
+          <IconButton
+        icon={AiOutlineSave}
+        label="Save"
+        type="submit"
+        labelClassName="uppercase"
+        svgClassName="bold-icon"
+        btnClassName = "button-green"
+      />
           </div>
         </form>
-      )}  
+      </div>
     </div>
   );
 };

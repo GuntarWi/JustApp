@@ -14,8 +14,8 @@ const Client1 = () => {
   ];
 
   return (
-    <div className=" w-full h-full">
-      <nav className="bg-white border-r border-r-gray-opacity ">
+    <div className=" w-full h-full ">
+      <nav className="bg-white border-r border-r-gray-opacity sticky top-0 z-40">
         <ul className="flex m-0 p-0 list-none relative -left-12">
           {tabs.map((tab) => (
             <li key={tab.name}>
