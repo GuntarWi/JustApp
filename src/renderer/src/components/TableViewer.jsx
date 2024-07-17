@@ -1,38 +1,42 @@
-// src/renderer/src/components/TableViewer.jsx
 import React from 'react';
 
-const TableViewer = ({ data }) => {
-  if (!data || data.length === 0) {
-    return <div>No data available</div>;
-  }
-
-  const headers = Object.keys(data[0]);
-
+const TableViewer = ({ data, renderPlayButton }) => {
   return (
-    <div className="overflow-auto ">
-      <table className="min-w-full bg-white">
-        <thead>
-          <tr>
-            {headers.map((header) => (
-              <th key={header} className="py-2 px-4 border-b border-gray-300 bg-gray-100">
-                {header}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((row, rowIndex) => (
-            <tr key={rowIndex}>
-              {headers.map((header) => (
-                <td key={header} className="py-2 px-4 border-b border-gray-300">
-                  {row[header]}
-                </td>
-              ))}
-            </tr>
+    <table className="min-w-full divide-y divide-gray-200">
+      <thead className="bg-gray-50">
+        <tr>
+          {Object.keys(data[0]).map((key) => (
+            <th
+              key={key}
+              scope="col"
+              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+            >
+              {key}
+            </th>
           ))}
-        </tbody>
-      </table>
-    </div>
+          <th
+            scope="col"
+            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+          >
+            Action
+          </th>
+        </tr>
+      </thead>
+      <tbody className="bg-white divide-y divide-gray-200">
+        {data.map((row, index) => (
+          <tr key={`${row["Round ID"]}-${index}`}>
+            {Object.keys(row).map((key) => (
+              <td key={`${key}-${index}`} className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                {row[key]}
+              </td>
+            ))}
+            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              {renderPlayButton(`${row["Round ID"]}-${index}`)}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 };
 

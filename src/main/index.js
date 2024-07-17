@@ -1,18 +1,24 @@
 import { app, shell, BrowserWindow, ipcMain } from 'electron';
-import { join, resolve } from 'path';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import { getPgClient, getMysqlClient, getClickhouseClient, testPgConnection, testMysqlConnection, testClickhouseConnection } from './database';
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+let blockingWindow = null;
+let blockingTimeoutId = null;
+let countdownIntervalId = null;
+let currentClient = null;
+let activeClients = [];
+
 async function createWindow() {
-
-
   const mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
     show: false,
     icon: join(__dirname, '../../resources/Icon.ico'),
     autoHideMenuBar: true,
-    ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
@@ -42,8 +48,6 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window);
   });
 
-  ipcMain.on('ping', () => console.log('pong'));
-
   createWindow();
 
   app.on('activate', function () {
@@ -52,10 +56,85 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
+  closeAllConnections();
   if (process.platform !== 'darwin') {
     app.quit();
   }
 });
+
+ipcMain.on('close-connection', async () => {
+  closeBlockingWindow();
+  closeCurrentConnection();
+});
+
+ipcMain.on('close-all-connections', async () => {
+  closeAllConnections();
+});
+
+function createBlockingWindow(timeout) {
+  blockingWindow = new BrowserWindow({
+    width: 300,
+    height: 200,
+    frame: false,
+    modal: true,
+    alwaysOnTop: true,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+    },
+  });
+
+  blockingWindow.loadFile(join(__dirname, '../renderer/blocking.html'));
+  blockingWindow.on('closed', () => {
+    blockingWindow = null;
+  });
+
+  blockingWindow.webContents.on('did-finish-load', () => {
+    let countdown = timeout / 1000;
+    blockingWindow.webContents.send('update-countdown', countdown);
+
+    countdownIntervalId = setInterval(() => {
+      countdown -= 1;
+      if (countdown <= 0) {
+        clearInterval(countdownIntervalId);
+      }
+      blockingWindow.webContents.send('update-countdown', countdown);
+    }, 1000);
+  });
+}
+
+function closeBlockingWindow() {
+  if (blockingWindow) {
+    blockingWindow.close();
+    blockingWindow = null;
+  }
+  clearTimeout(blockingTimeoutId);
+  clearInterval(countdownIntervalId);
+}
+
+function closeCurrentConnection() {
+  if (currentClient) {
+    try {
+      currentClient.end();
+      currentClient = null;
+      console.log('Current database connection closed');
+    } catch (error) {
+      console.error('Error closing current database connection:', error);
+    }
+  }
+}
+
+function closeAllConnections() {
+  activeClients.forEach(client => {
+    try {
+      client.end();
+      console.log('Database connection closed');
+    } catch (error) {
+      console.error('Error closing database connection:', error);
+    }
+  });
+  activeClients = [];
+}
 
 ipcMain.on('save-config', async (event, key, value) => {
   const { default: Store } = await import('electron-store');
@@ -73,7 +152,18 @@ ipcMain.handle('execute-query', async (event, { clientType, query }) => {
   const { default: Store } = await import('electron-store');
   const store = new Store();
   const connectionDetails = store.get(clientType);
-  
+
+  const TIMEOUT_MS = 10000; // 10 seconds
+  const BLOCKING_WINDOW_DELAY = 0; // 3 seconds
+  let timeoutId;
+  let result;
+
+  const showBlockingWindow = () => {
+    createBlockingWindow(TIMEOUT_MS - BLOCKING_WINDOW_DELAY);
+  };
+
+  blockingTimeoutId = setTimeout(showBlockingWindow, BLOCKING_WINDOW_DELAY);
+
   try {
     if (!query) {
       throw new Error('Query text is empty');
@@ -82,35 +172,53 @@ ipcMain.handle('execute-query', async (event, { clientType, query }) => {
     console.log(`Executing query on client type: ${clientType}`);
     console.log(`Query: ${query}`);
 
-    let result;
+    const timeoutPromise = new Promise((_, reject) =>
+      timeoutId = setTimeout(() => reject(new Error('Query timed out')), TIMEOUT_MS)
+    );
+
     switch (clientType) {
       case 'client1':
-        const pgClient = getPgClient(connectionDetails);
-        await pgClient.connect();
+        currentClient = getPgClient(connectionDetails);
+        activeClients.push(currentClient);
+        await currentClient.connect();
         console.log('PostgreSQL Client Connected');
-        result = await pgClient.query(query);
+        result = await Promise.race([currentClient.query(query), timeoutPromise]);
         console.log('Query Result:', result.rows);
-        await pgClient.end();
+        await currentClient.end();
+        activeClients = activeClients.filter(client => client !== currentClient);
+        clearTimeout(timeoutId);
+        closeBlockingWindow();
         return JSON.parse(JSON.stringify(result.rows));
       case 'client2':
-        const mysqlClient = await getMysqlClient(connectionDetails);
+        currentClient = await getMysqlClient(connectionDetails);
+        activeClients.push(currentClient);
         console.log('MySQL Client Connected');
-        [result] = await mysqlClient.execute(query);
+        [result] = await Promise.race([currentClient.execute(query), timeoutPromise]);
         console.log('Query Result:', result);
-        await mysqlClient.end();
+        await currentClient.end();
+        activeClients = activeClients.filter(client => client !== currentClient);
+        clearTimeout(timeoutId);
+        closeBlockingWindow();
         return JSON.parse(JSON.stringify(result));
       case 'client3':
-        const clickhouseClient = getClickhouseClient(connectionDetails);
+        currentClient = getClickhouseClient(connectionDetails);
+        activeClients.push(currentClient);
         console.log('ClickHouse Client Connected');
-        result = await clickhouseClient.query(query).toPromise();
+        result = await Promise.race([currentClient.query(query).toPromise(), timeoutPromise]);
         console.log('Query Result:', result.data);
+        clearTimeout(timeoutId);
+        closeBlockingWindow();
         return JSON.parse(JSON.stringify(result.data));
       default:
         throw new Error('Unknown client type');
     }
   } catch (error) {
+    clearTimeout(timeoutId);
+    closeBlockingWindow();
     console.error('Error executing query:', error);
     throw error;
+  } finally {
+    closeCurrentConnection();
   }
 });
 
@@ -196,8 +304,6 @@ ipcMain.handle('get-tables', async (event, clientType) => {
     throw error;
   }
 });
-
-
 
 ipcMain.handle('get-databases', async (event, connectionDetails) => {
   try {

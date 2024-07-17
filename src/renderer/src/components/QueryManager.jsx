@@ -32,7 +32,7 @@ const QueryManager = ({ clientType }) => {
 
   const sanitizeInput = (input) => {
     // Basic sanitization to prevent SQL injection and XSS attacks
-    return input.replace(/<[^>]+>|--|\/\*|\*\/|;|'/g, '');
+    return input.replace(/<[^>]+>|--|\/\*|\*\/|;/g, '');
   };
 
   const saveQuery = async () => {
@@ -96,7 +96,7 @@ const QueryManager = ({ clientType }) => {
         clientType,
         query: sanitizedQueryText,
       });
-      console.log('Query Result:', result);
+      //console.log('Query Result:', result);
       setQueryResult(result);
       setError(null);
       setIsResultModalOpen(true); // Open result modal on success
@@ -111,7 +111,6 @@ const QueryManager = ({ clientType }) => {
     setQueryText(query.text);
     setEditingQuery(query);
     setShowForm(true);
-    setIsModalOpen(true);
   };
 
   const openModal = () => setIsModalOpen(true);

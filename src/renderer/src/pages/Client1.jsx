@@ -4,6 +4,7 @@ import { AiOutlineLink, AiOutlineUser, AiOutlineNumber,AiOutlineSave } from 'rea
 import Player from './Player';
 import RoundID from './RoundID';
 import Connection from './Connection';
+import OppositeBetting from './OppositeBetting'
 
 const Client1 = () => {
   const location = useLocation();
@@ -11,6 +12,7 @@ const Client1 = () => {
     { name: 'Connection', path: 'connection', icon: <AiOutlineLink className='text-black' /> }, // Add icon for Connection
     { name: 'Player', path: 'player', icon: <AiOutlineUser /> }, // Add icon for Player
     { name: 'Round ID', path: 'roundid', icon: <AiOutlineNumber /> }, // Add icon for Round ID
+    { name: 'OppositeBetting', path: 'OppositeBetting', icon: <AiOutlineNumber /> }, // Add icon for Round ID
   ];
 
   return (
@@ -39,6 +41,7 @@ const Client1 = () => {
         <Route path="connection" element={<Connection clientType="client1" />} />
         <Route path="player" element={<Player clientType="client1" />} />
         <Route path="roundid" element={<RoundID clientType="client1" />} />
+        <Route path="OppositeBetting" element={<OppositeBetting clientType="client1" />} />
         <Route path="*" element={<div>Select a tab</div>} />
       </Routes>
     </div>
