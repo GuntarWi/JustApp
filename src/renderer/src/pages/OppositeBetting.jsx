@@ -121,9 +121,8 @@ const OppositeBetting = ({ clientType }) => {
       }
     };
 
-    // Focus on specific game IDs for debugging
-    const specificRounds = ['2e3sSTjfb9nc5Wul31', '2e3sSTjfb9nc5Wul45'];
-    for (const roundId of specificRounds) {
+    const initialRounds = [...new Set(queryResult.map(row => row["Game Id"]))];
+    for (const roundId of initialRounds) {
       await processRound(roundId);
     }
 
