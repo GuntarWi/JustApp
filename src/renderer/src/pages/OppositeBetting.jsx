@@ -55,7 +55,6 @@ const OppositeBetting = ({ clientType }) => {
     let updatedQueryResult = [...queryResult];
     let bankerSum = 0;
     let playerSum = 0;
-    const playerRoundCount = {};
 
     const processRound = async (roundId) => {
       if (shouldStop || processedRounds.has(roundId)) return;
@@ -64,30 +63,36 @@ const OppositeBetting = ({ clientType }) => {
       const queryText = `
         SELECT *
         FROM public.fraud_round_history
-        WHERE "Round ID" = '${roundId}'
+        WHERE "Game Id" = '${roundId}'
       `;
       const roundBets = await window.electron.executeQuery({
         clientType,
         query: queryText,
       });
 
+      console.log(`Processing Round: ${roundId}`);
+
       const bankerBets = roundBets.filter(bet => bet["Bet Position"] === 'BANKER');
       const playerBets = roundBets.filter(bet => bet["Bet Position"] === 'PLAYER');
+
+      console.log(`Banker Bets: ${JSON.stringify(bankerBets)}`);
+      console.log(`Player Bets: ${JSON.stringify(playerBets)}`);
 
       bankerSum += bankerBets.reduce((sum, bet) => sum + parseFloat(bet["BET EUR"].replace(/,/g, '')), 0);
       playerSum += playerBets.reduce((sum, bet) => sum + parseFloat(bet["BET EUR"].replace(/,/g, '')), 0);
 
       const appendBet = (bet, existingPlayerIds) => {
         if (!existingPlayerIds.has(bet["User Id"])) {
-          const roundIndex = updatedQueryResult.findIndex(item => item['Round ID'] === roundId);
+          const roundIndex = updatedQueryResult.findIndex(item => item['Game Id'] === roundId);
           if (roundIndex !== -1) {
             updatedQueryResult.splice(roundIndex + 1, 0, bet);
             existingPlayerIds.add(bet["User Id"]);
+            console.log(`Appended Bet: ${JSON.stringify(bet)} to round: ${roundId}`);
           }
         }
       };
 
-      const existingPlayerIds = new Set(updatedQueryResult.filter(item => item['Round ID'] === roundId).map(item => item['User Id']));
+      const existingPlayerIds = new Set(updatedQueryResult.filter(item => item['Game Id'] === roundId).map(item => item['User Id']));
 
       bankerBets.forEach(bankerBet => {
         playerBets.forEach(playerBet => {
@@ -95,40 +100,34 @@ const OppositeBetting = ({ clientType }) => {
           const playerAmount = parseFloat(playerBet["BET EUR"].replace(/,/g, ''));
           const deviation = Math.abs(bankerAmount - playerAmount) / Math.max(bankerAmount, playerAmount);
 
-          if (bankerAmount === playerAmount || deviation <= 0.1) { // Using 10% deviation
+          console.log(`Round: ${roundId}, Banker Bet: ${bankerAmount}, Player Bet: ${playerAmount}, Deviation: ${deviation}`);
+
+          if (bankerAmount === playerAmount || deviation <= 0.1) { // Using 10% deviation or exact match
             if (!playerIdsSet.has(playerBet["User Id"])) {
               playerIdsSet.add(playerBet["User Id"]);
               setPlayerIds([...playerIdsSet].join(', '));
             }
 
-            // Append player bet under the corresponding round ID
+            // Append player bet under the corresponding Game Id
             appendBet(playerBet, existingPlayerIds);
-
-            // Track the round count for the player
-            playerRoundCount[playerBet["User Id"]] = (playerRoundCount[playerBet["User Id"]] || 0) + 1;
           }
         });
       });
 
       // Process new opposite betting rounds
-      const newRounds = roundBets.map(bet => bet['Round ID']).filter(rid => !processedRounds.has(rid));
+      const newRounds = roundBets.map(bet => bet['Game Id']).filter(rid => !processedRounds.has(rid));
       for (const newRoundId of newRounds) {
         await processRound(newRoundId);
       }
     };
 
-    const initialRounds = [...new Set(queryResult.map(row => row["Round ID"]))];
-    for (const roundId of initialRounds) {
+    // Focus on specific game IDs for debugging
+    const specificRounds = ['2e3sSTjfb9nc5Wul31', '2e3sSTjfb9nc5Wul45'];
+    for (const roundId of specificRounds) {
       await processRound(roundId);
     }
 
-    // Exclude players who do not form a chain of opposite bets
-    const filteredQueryResult = updatedQueryResult.filter(row => {
-      const playerId = row['User Id'];
-      return playerRoundCount[playerId] >= 2; // Adjust the threshold as needed
-    });
-
-    setQueryResult(filteredQueryResult);
+    setQueryResult(updatedQueryResult);
     setBankerTotal(bankerSum);
     setPlayerTotal(playerSum);
     setFinding(false);

@@ -42,12 +42,12 @@ const Player = ({ clientType }) => {
     if (!queryResult) return;
 
     try {
-      const roundIds = [...new Set(queryResult.map(row => row["Round ID"]))];
+      const roundIds = [...new Set(queryResult.map(row => row["Game Id"]))];
 
       const shoeIdQuery = `
-        SELECT DISTINCT "Round ID", "Shoe change time"
+        SELECT DISTINCT "Game Id", "Shoe change time"
         FROM public.fraud_bj_view
-        WHERE "Round ID" IN (${roundIds.map(id => `'${id}'`).join(', ')})
+        WHERE "Game Id" IN (${roundIds.map(id => `'${id}'`).join(', ')})
       `;
       const shoeIdResult = await window.electron.executeQuery({
         clientType,
@@ -55,19 +55,19 @@ const Player = ({ clientType }) => {
       });
 
       if (!shoeIdResult || shoeIdResult.length === 0) {
-        console.error('No shoe IDs found for the round IDs');
+        console.error('No shoe IDs found for the Game Ids');
         return;
       }
 
       const shoeIdMap = {};
       shoeIdResult.forEach(row => {
-        shoeIdMap[row["Round ID"]] = row["Shoe change time"];
+        shoeIdMap[row["Game Id"]] = row["Shoe change time"];
       });
 
       const shoeIds = [...new Set(shoeIdResult.map(row => row["Shoe change time"]))];
 
       const cardsQuery = `
-        SELECT "Round ID", cards, "Shoe change time"
+        SELECT "Game Id", cards, "Shoe change time"
         FROM public.fraud_bj_view
         WHERE "Shoe change time" IN (${shoeIds.map(id => `'${id}'`).join(', ')})
         ORDER BY "Time"
@@ -84,10 +84,10 @@ const Player = ({ clientType }) => {
 
       const roundCards = {};
       cardsResult.forEach(row => {
-        if (!roundCards[row["Round ID"]]) {
-          roundCards[row["Round ID"]] = [];
+        if (!roundCards[row["Game Id"]]) {
+          roundCards[row["Game Id"]] = [];
         }
-        roundCards[row["Round ID"]].push({ card: row.cards, shoe: row["Shoe change time"] });
+        roundCards[row["Game Id"]].push({ card: row.cards, shoe: row["Shoe change time"] });
       });
 
       const trueCountsToUpdate = {};
