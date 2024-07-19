@@ -42,12 +42,12 @@ const Player = ({ clientType }) => {
     if (!queryResult) return;
 
     try {
-      const roundIds = [...new Set(queryResult.map(row => row["Game Id"]))];
+      const roundIds = [...new Set(queryResult.map(row => row["gameid"]))];
 
       const shoeIdQuery = `
-        SELECT DISTINCT "Game Id", "Shoe change time"
+        SELECT DISTINCT "gameid", "Shoe change time"
         FROM public.fraud_bj_view
-        WHERE "Game Id" IN (${roundIds.map(id => `'${id}'`).join(', ')})
+        WHERE "gameid" IN (${roundIds.map(id => `'${id}'`).join(', ')})
       `;
       const shoeIdResult = await window.electron.executeQuery({
         clientType,
@@ -55,19 +55,19 @@ const Player = ({ clientType }) => {
       });
 
       if (!shoeIdResult || shoeIdResult.length === 0) {
-        console.error('No shoe IDs found for the Game Ids');
+        console.error('No shoe IDs found for the gameids');
         return;
       }
 
       const shoeIdMap = {};
       shoeIdResult.forEach(row => {
-        shoeIdMap[row["Game Id"]] = row["Shoe change time"];
+        shoeIdMap[row["gameid"]] = row["Shoe change time"];
       });
 
       const shoeIds = [...new Set(shoeIdResult.map(row => row["Shoe change time"]))];
 
       const cardsQuery = `
-        SELECT "Game Id", cards, "Shoe change time"
+        SELECT "gameid", cards, "Shoe change time"
         FROM public.fraud_bj_view
         WHERE "Shoe change time" IN (${shoeIds.map(id => `'${id}'`).join(', ')})
         ORDER BY "Time"
@@ -84,10 +84,10 @@ const Player = ({ clientType }) => {
 
       const roundCards = {};
       cardsResult.forEach(row => {
-        if (!roundCards[row["Game Id"]]) {
-          roundCards[row["Game Id"]] = [];
+        if (!roundCards[row["gameid"]]) {
+          roundCards[row["gameid"]] = [];
         }
-        roundCards[row["Game Id"]].push({ card: row.cards, shoe: row["Shoe change time"] });
+        roundCards[row["gameid"]].push({ card: row.cards, shoe: row["Shoe change time"] });
       });
 
       const trueCountsToUpdate = {};

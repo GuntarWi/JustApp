@@ -12,13 +12,15 @@ const OppositeBetting = ({ clientType }) => {
   const [finding, setFinding] = useState(false);
   const [shouldStop, setShouldStop] = useState(false);
   const [playerStats, setPlayerStats] = useState([]);
+  const [timeFrame, setTimeFrame] = useState('Today');
 
-  const BET_POSITION = "Bet Position"; // Adjust if database field changes
-  const BET_POSITION_PLAYER = "PLAYER"; // Adjust if database field changes
-  const BET_POSITION_BANKER = "BANKER"; // Adjust if database field changes
-  const BET_EUR = "BET EUR"; // Adjust if database field changes
-  const GAME_ID = "Game Id"; // Adjust if database field changes
-  const USER_ID = "User Id"; // Adjust if database field changes
+  const BET_POSITION = "Bet Position"; 
+  const BET_POSITION_PLAYER = "PLAYER"; 
+  const BET_POSITION_BANKER = "BANKER"; 
+  const BET_EUR = "amount_eur"; 
+  const GAME_ID = "gameid"; 
+  const USER_ID = "User Id"; 
+  const CREATE_DATE = "createdate"; 
 
   useEffect(() => {
     const loadQueries = async () => {
@@ -32,15 +34,40 @@ const OppositeBetting = ({ clientType }) => {
     loadQueries();
   }, [clientType]);
 
+  const getTimeFrameFilter = () => {
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+
+    if (timeFrame === 'Today') {
+      return `DATE("${CREATE_DATE}") = '${today.toISOString().split('T')[0]}'`;
+    } else if (timeFrame === 'Yesterday') {
+      return `DATE("${CREATE_DATE}") = '${yesterday.toISOString().split('T')[0]}'`;
+    }
+    return '';
+  };
+
   const executeQuery = async () => {
     try {
       setLoading(true);
       setQueryResult([]);
       const playerIdsArray = playerIds.split(',').map(id => id.trim());
       let queryText = selectedQuery;
-      if (playerIdsArray.length > 0) {
-        queryText += ` WHERE "${USER_ID}" IN (${playerIdsArray.map(id => `'${id}'`).join(', ')})`;
+      const timeFrameFilter = getTimeFrameFilter();
+
+      if (playerIdsArray.length > 0 || timeFrameFilter) {
+        queryText += ' WHERE';
+        if (playerIdsArray.length > 0) {
+          queryText += ` "${USER_ID}" IN (${playerIdsArray.map(id => `'${id}'`).join(', ')})`;
+        }
+        if (playerIdsArray.length > 0 && timeFrameFilter) {
+          queryText += ' AND';
+        }
+        if (timeFrameFilter) {
+          queryText += ` ${timeFrameFilter}`;
+        }
       }
+
       const result = await window.electron.executeQuery({
         clientType,
         query: queryText,
@@ -187,11 +214,32 @@ const OppositeBetting = ({ clientType }) => {
       await processRound(roundId);
     }
 
-    // Calculate statistics and filter out players not meeting the 50% rule
+    // Identify potential false positives dynamically
+    const falsePositivePlayers = new Set();
+    const totalRoundsByUser = {};
+
+    // First pass: Count total rounds per user
+    for (const userId of Object.keys(playerRoundStats)) {
+      totalRoundsByUser[userId] = playerRoundStats[userId].totalRounds.size;
+    }
+
+    // Second pass: Identify rounds with more than two players and flag isolated players
+    for (const roundId of processedRounds) {
+      const roundPlayers = new Set(newQueryResult.filter(bet => bet[GAME_ID] === roundId).map(bet => bet[USER_ID]));
+      if (roundPlayers.size > 2) {
+        roundPlayers.forEach(player => {
+          if (totalRoundsByUser[player] === 1) {
+            falsePositivePlayers.add(player);
+          }
+        });
+      }
+    }
+
+    // Calculate statistics and filter out players not meeting the 50% rule or identified as false positives
     const finalPlayerIds = Object.keys(playerRoundStats).filter(id => {
       const stats = playerRoundStats[id];
       const totalWager = stats.oppositeWager + stats.nonOppositeWager;
-      return stats.oppositeWager >= 0.5 * totalWager;
+      return stats.oppositeWager >= 0.5 * totalWager && !falsePositivePlayers.has(id); // Exclude identified false positives
     });
 
     if (finalPlayerIds.length === 0) {
@@ -244,6 +292,17 @@ const OppositeBetting = ({ clientType }) => {
             onChange={(e) => setPlayerIds(e.target.value)}
             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black"
           />
+        </div>
+        <div className="mt-4">
+          <label className="block text-sm font-medium text-gray-700">Time Frame</label>
+          <select
+            value={timeFrame}
+            onChange={(e) => setTimeFrame(e.target.value)}
+            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black"
+          >
+            <option value="Today">Today</option>
+            <option value="Yesterday">Yesterday</option>
+          </select>
         </div>
         <button
           onClick={executeQuery}
