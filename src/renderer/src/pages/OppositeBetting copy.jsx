@@ -13,6 +13,13 @@ const OppositeBetting = ({ clientType }) => {
   const [shouldStop, setShouldStop] = useState(false);
   const [playerStats, setPlayerStats] = useState([]);
 
+  const BET_POSITION = "Bet Position"; // Adjust if database field changes
+  const BET_POSITION_PLAYER = "PLAYER"; // Adjust if database field changes
+  const BET_POSITION_BANKER = "BANKER"; // Adjust if database field changes
+  const BET_EUR = "BET EUR"; // Adjust if database field changes
+  const GAME_ID = "Game Id"; // Adjust if database field changes
+  const USER_ID = "User Id"; // Adjust if database field changes
+
   useEffect(() => {
     const loadQueries = async () => {
       const savedQueries = await window.electron.getConfig(`${clientType}-queries`);
@@ -32,7 +39,7 @@ const OppositeBetting = ({ clientType }) => {
       const playerIdsArray = playerIds.split(',').map(id => id.trim());
       let queryText = selectedQuery;
       if (playerIdsArray.length > 0) {
-        queryText += ` WHERE "User Id" IN (${playerIdsArray.map(id => `'${id}'`).join(', ')})`;
+        queryText += ` WHERE "${USER_ID}" IN (${playerIdsArray.map(id => `'${id}'`).join(', ')})`;
       }
       const result = await window.electron.executeQuery({
         clientType,
@@ -48,11 +55,10 @@ const OppositeBetting = ({ clientType }) => {
 
   const findOppositeBets = useCallback(async () => {
     if (queryResult.length === 0) return;
-  
+
     console.clear();
     setFinding(true);
     setShouldStop(false);
-    const initialPlayerIds = new Set(playerIds.split(',').map(id => id.trim()));
     const detectedPlayerIds = new Set();
     const playerRoundStats = {};
     const processedRounds = new Set();
@@ -60,11 +66,11 @@ const OppositeBetting = ({ clientType }) => {
     let newQueryResult = [];
     let bankerSum = 0;
     let playerSum = 0;
-  
+
     const parseBetAmount = (bet) => {
-      return typeof bet["BET EUR"] === 'string' 
-        ? parseFloat(bet["BET EUR"].replace(/,/g, ''))
-        : bet["BET EUR"];
+      return typeof bet[BET_EUR] === 'string'
+        ? parseFloat(bet[BET_EUR].replace(/,/g, ''))
+        : bet[BET_EUR];
     };
 
     const updatePlayerStats = (userId, isOpposite, amount, roundId) => {
@@ -84,69 +90,69 @@ const OppositeBetting = ({ clientType }) => {
         playerRoundStats[userId].nonOppositeWager += amount;
       }
     };
-  
+
     const processRound = async (roundId) => {
       if (shouldStop || processedRounds.has(roundId)) return;
       processedRounds.add(roundId);
-  
+
       const queryText = `
         SELECT *
         FROM public.fraud_round_history
-        WHERE "Game Id" = '${roundId}'
+        WHERE "${GAME_ID}" = '${roundId}'
       `;
       const roundBets = await window.electron.executeQuery({
         clientType,
         query: queryText,
       });
-  
+
       console.log(`Processing Round: ${roundId}`);
-  
-      const bankerBets = roundBets.filter(bet => bet["Bet Position"] === 'BANKER');
-      const playerBets = roundBets.filter(bet => bet["Bet Position"] === 'PLAYER');
-  
+
+      const bankerBets = roundBets.filter(bet => bet[BET_POSITION] === BET_POSITION_BANKER);
+      const playerBets = roundBets.filter(bet => bet[BET_POSITION] === BET_POSITION_PLAYER);
+
       console.log(`Banker Bets: ${JSON.stringify(bankerBets)}`);
       console.log(`Player Bets: ${JSON.stringify(playerBets)}`);
-  
+
       bankerSum += bankerBets.reduce((sum, bet) => sum + parseBetAmount(bet), 0);
       playerSum += playerBets.reduce((sum, bet) => sum + parseBetAmount(bet), 0);
-  
+
       const oppositeBets = [];
-  
+
       // Function to check if bets are opposite
       const checkOppositeBets = (bankerGroup, playerGroup) => {
         const bankerTotal = bankerGroup.reduce((sum, bet) => sum + parseBetAmount(bet), 0);
         const playerTotal = playerGroup.reduce((sum, bet) => sum + parseBetAmount(bet), 0);
         const deviation = Math.abs(bankerTotal - playerTotal) / Math.max(bankerTotal, playerTotal);
-  
+
         console.log(`Round: ${roundId}, Banker Total: ${bankerTotal}, Player Total: ${playerTotal}, Deviation: ${deviation}`);
-  
+
         if (bankerTotal === playerTotal || deviation <= 0.05) {
           console.log(`Opposite Betting Detected: Round: ${roundId}`);
-          console.log(`Banker Group: ${bankerGroup.map(bet => bet["User Id"]).join(', ')}`);
-          console.log(`Player Group: ${playerGroup.map(bet => bet["User Id"]).join(', ')}`);
+          console.log(`Banker Group: ${bankerGroup.map(bet => bet[USER_ID]).join(', ')}`);
+          console.log(`Player Group: ${playerGroup.map(bet => bet[USER_ID]).join(', ')}`);
           bankerGroup.concat(playerGroup).forEach(bet => {
-            const playerRoundKey = `${bet["User Id"]}-${bet["Game Id"]}`;
+            const playerRoundKey = `${bet[USER_ID]}-${bet[GAME_ID]}`;
             if (!processedPlayerRoundPairs.has(playerRoundKey)) {
               processedPlayerRoundPairs.add(playerRoundKey);
               oppositeBets.push(bet);
-              detectedPlayerIds.add(bet["User Id"]);
-              updatePlayerStats(bet["User Id"], true, parseBetAmount(bet), roundId);
+              detectedPlayerIds.add(bet[USER_ID]);
+              updatePlayerStats(bet[USER_ID], true, parseBetAmount(bet), roundId);
             }
           });
         } else {
           bankerGroup.concat(playerGroup).forEach(bet => {
-            updatePlayerStats(bet["User Id"], false, parseBetAmount(bet), roundId);
+            updatePlayerStats(bet[USER_ID], false, parseBetAmount(bet), roundId);
           });
         }
       };
-  
+
       // Check individual bets
       bankerBets.forEach(bankerBet => {
         playerBets.forEach(playerBet => {
           checkOppositeBets([bankerBet], [playerBet]);
         });
       });
-  
+
       // Check group bets
       const checkGroupBets = (mainBets, oppositeBets) => {
         for (let i = 0; i < mainBets.length; i++) {
@@ -154,11 +160,11 @@ const OppositeBetting = ({ clientType }) => {
           let oppositeGroup = [];
           let oppositeTotal = 0;
           const mainTotal = parseBetAmount(mainBets[i]);
-  
+
           for (let j = 0; j < oppositeBets.length; j++) {
             oppositeTotal += parseBetAmount(oppositeBets[j]);
             oppositeGroup.push(oppositeBets[j]);
-  
+
             if (Math.abs(mainTotal - oppositeTotal) / Math.max(mainTotal, oppositeTotal) <= 0.05) {
               checkOppositeBets(mainGroup, oppositeGroup);
               break;
@@ -166,50 +172,59 @@ const OppositeBetting = ({ clientType }) => {
           }
         }
       };
-  
+
       checkGroupBets(bankerBets, playerBets);
       checkGroupBets(playerBets, bankerBets);
-  
+
       newQueryResult.push(...oppositeBets);
-  
-      const newRounds = roundBets.map(bet => bet['Game Id']).filter(rid => !processedRounds.has(rid));
+
+      const newRounds = roundBets.map(bet => bet[GAME_ID]).filter(rid => !processedRounds.has(rid));
       for (const newRoundId of newRounds) {
         await processRound(newRoundId);
       }
     };
-  
-    const initialRounds = [...new Set(queryResult.map(row => row["Game Id"]))];
+
+    const initialRounds = [...new Set(queryResult.map(row => row[GAME_ID]))];
     for (const roundId of initialRounds) {
       await processRound(roundId);
     }
-  
+
     // Filter players based on 50% opposite betting rule
-    const finalPlayerIds = Array.from(initialPlayerIds).filter(id => {
-      const stats = playerRoundStats[id];
+    const filteredQueryResult = newQueryResult.filter(bet => {
+      const userId = bet[USER_ID];
+      const stats = playerRoundStats[userId];
       if (!stats) return false;
       const totalWager = stats.oppositeWager + stats.nonOppositeWager;
       return stats.oppositeWager >= 0.5 * totalWager;
     });
-    setPlayerIds(finalPlayerIds.join(', '));
-    setPlayerStats(Object.entries(playerRoundStats).map(([id, stats]) => {
-      const totalWager = stats.oppositeWager + stats.nonOppositeWager;
-      const oppositePercentage = ((stats.oppositeWager / totalWager) * 100).toFixed(2);
-      return {
-        id,
-        totalRounds: stats.totalRounds.size,
-        oppositeRounds: stats.oppositeRounds.size,
-        oppositeWager: stats.oppositeWager.toFixed(2),
-        nonOppositeWager: stats.nonOppositeWager.toFixed(2),
-        oppositePercentage,
-      };
-    }));
+
+    if (filteredQueryResult.length === 0) {
+      // Clear the table if no players meet the opposite betting criteria
+      setQueryResult([]);
+      setBankerTotal(0);
+      setPlayerTotal(0);
+      setPlayerStats([]);
+    } else {
+      const finalPlayerIds = [...new Set(filteredQueryResult.map(bet => bet[USER_ID]))];
+      setPlayerIds(finalPlayerIds.join(', '));
+      setQueryResult(filteredQueryResult);
+      setPlayerStats(Object.entries(playerRoundStats).map(([id, stats]) => {
+        const totalWager = stats.oppositeWager + stats.nonOppositeWager;
+        const oppositePercentage = ((stats.oppositeWager / totalWager) * 100).toFixed(2);
+        return {
+          id,
+          totalRounds: stats.totalRounds.size,
+          oppositeRounds: stats.oppositeRounds.size,
+          oppositeWager: stats.oppositeWager.toFixed(2),
+          nonOppositeWager: stats.nonOppositeWager.toFixed(2),
+          oppositePercentage,
+        };
+      }).filter(stat => stat.oppositeWager >= 0.5 * (stat.oppositeWager + stat.nonOppositeWager)));
+    }
 
     console.log('Final Query Result:', newQueryResult);
-    setQueryResult(newQueryResult);
-    setBankerTotal(bankerSum.toFixed(2));
-    setPlayerTotal(playerSum.toFixed(2));
     setFinding(false);
-  }, [queryResult, playerIds, clientType, shouldStop]);
+  }, [queryResult, clientType, shouldStop]);
 
   const stopFinding = () => {
     setShouldStop(true);
