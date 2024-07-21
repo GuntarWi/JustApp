@@ -14,13 +14,13 @@ const OppositeBetting = ({ clientType }) => {
   const [playerStats, setPlayerStats] = useState([]);
   const [timeFrame, setTimeFrame] = useState('Today');
 
-  const BET_POSITION = "Bet Position"; 
-  const BET_POSITION_PLAYER = "PLAYER"; 
-  const BET_POSITION_BANKER = "BANKER"; 
-  const BET_EUR = "amount_eur"; 
-  const GAME_ID = "gameid"; 
-  const USER_ID = "User Id"; 
-  const CREATE_DATE = "createdate"; 
+  const BET_POSITION = "Bet Position";
+  const BET_POSITION_PLAYER = "PLAYER";
+  const BET_POSITION_BANKER = "BANKER";
+  const BET_EUR = "amount_eur";
+  const GAME_ID = "gameid";
+  const USER_ID = "User Id";
+  const CREATE_DATE = "createdate";
 
   useEffect(() => {
     const loadQueries = async () => {
@@ -81,196 +81,186 @@ const OppositeBetting = ({ clientType }) => {
   };
 
   const findOppositeBets = useCallback(async () => {
-    if (queryResult.length === 0) return;
+    if (queryResult.length === 0 || !playerIds) return;
 
     console.clear();
     setFinding(true);
-    setShouldStop(false);
-    const playerRoundStats = {};
-    const processedRounds = new Set();
-    const processedPlayerRoundPairs = new Set();
-    let newQueryResult = [];
-    let bankerSum = 0;
-    let playerSum = 0;
 
-    const parseBetAmount = (bet) => {
-      return typeof bet[BET_EUR] === 'string'
-        ? parseFloat(bet[BET_EUR].replace(/,/g, ''))
-        : bet[BET_EUR];
-    };
+    let initialPlayerIds = new Set(playerIds.split(',').map(id => id.trim()));
+    let updatedPlayerIds = new Set([...initialPlayerIds]);
 
-    const updatePlayerStats = (userId, isOpposite, amount, roundId) => {
-      if (!playerRoundStats[userId]) {
-        playerRoundStats[userId] = {
-          totalRounds: new Set(),
-          oppositeRounds: new Set(),
-          oppositeWager: 0,
-          nonOppositeWager: 0,
-        };
-      }
-      playerRoundStats[userId].totalRounds.add(roundId);
-      if (isOpposite) {
-        playerRoundStats[userId].oppositeRounds.add(roundId);
-        playerRoundStats[userId].oppositeWager += amount;
-      } else {
-        playerRoundStats[userId].nonOppositeWager += amount;
-      }
-    };
+    console.log("🌟 Initial Player IDs:", Array.from(initialPlayerIds).join(', '));
 
-    const processRound = async (roundId) => {
-      if (shouldStop || processedRounds.has(roundId)) return;
-      processedRounds.add(roundId);
+    // Sets to keep track of game IDs with matches and no matches
+    const matchGameIds = new Set();
+    const noMatchGameIds = new Set();
+    const suspiciousPlayerIds = new Set();
 
-      const queryText = `
-        SELECT *
-        FROM public.fraud_round_history
-        WHERE "${GAME_ID}" = '${roundId}'
-      `;
-      const roundBets = await window.electron.executeQuery({
-        clientType,
-        query: queryText,
-      });
+    // Retrieve all game rounds for the specified player IDs
+    for (let bet of queryResult) {
+        if (matchGameIds.has(bet.gameid) || noMatchGameIds.has(bet.gameid)) {
+            console.log(`🔍 Skipping Game ID ${bet.gameid} as it has already been processed.`);
+            continue; // Skip querying if we already know the result
+        }
 
-      console.log(`Processing Round: ${roundId}`);
+        console.log(`🔄 Querying Game ID ${bet.gameid} for matching rounds.`);
 
-      const bankerBets = roundBets.filter(bet => bet[BET_POSITION] === BET_POSITION_BANKER);
-      const playerBets = roundBets.filter(bet => bet[BET_POSITION] === BET_POSITION_PLAYER);
+        const otherPlayerBets = await window.electron.executeQuery({
+            clientType,
+            query: `SELECT * FROM public.fraud_round_history WHERE "gameid" = '${bet.gameid}' AND "User Id" != '${bet["User Id"]}'`
+        });
 
-      console.log(`Banker Bets: ${JSON.stringify(bankerBets)}`);
-      console.log(`Player Bets: ${JSON.stringify(playerBets)}`);
+        let foundMatch = false;
+        otherPlayerBets.forEach(otherBet => {
+            if (otherBet.gameid === bet.gameid &&
+                otherBet["Bet Position"] !== bet["Bet Position"] &&
+                bet["User Id"] !== otherBet["User Id"]) {
+                const lowerBound = bet.amount_eur * 0.9;
+                const upperBound = bet.amount_eur * 1.1;
+                if (otherBet.amount_eur >= lowerBound && otherBet.amount_eur <= upperBound) {
+                    console.log("🔍 Opposite Bet Found! 🎉");
+                    console.log(`👥 Opposite Betting Pair: Player ${bet["User Id"]} (${bet["Bet Position"]}) and Player ${otherBet["User Id"]} (${otherBet["Bet Position"]})`);
+                    console.log(`🏆 Game ID: ${otherBet.gameid}`);
+                    console.log(`💰 Bet Amount: ${otherBet.amount_eur}`);
 
-      bankerSum += bankerBets.reduce((sum, bet) => sum + parseBetAmount(bet), 0);
-      playerSum += playerBets.reduce((sum, bet) => sum + parseBetAmount(bet), 0);
-
-      const oppositeBets = [];
-
-      // Function to check if bets are opposite
-      const checkOppositeBets = (bankerGroup, playerGroup) => {
-        const bankerTotal = bankerGroup.reduce((sum, bet) => sum + parseBetAmount(bet), 0);
-        const playerTotal = playerGroup.reduce((sum, bet) => sum + parseBetAmount(bet), 0);
-        const deviation = Math.abs(bankerTotal - playerTotal) / Math.max(bankerTotal, playerTotal);
-
-        console.log(`Round: ${roundId}, Banker Total: ${bankerTotal}, Player Total: ${playerTotal}, Deviation: ${deviation}`);
-
-        if (bankerTotal === playerTotal || deviation <= 0.05) {
-          console.log(`Opposite Betting Detected: Round: ${roundId}`);
-          console.log(`Banker Group: ${bankerGroup.map(bet => bet[USER_ID]).join(', ')}`);
-          console.log(`Player Group: ${playerGroup.map(bet => bet[USER_ID]).join(', ')}`);
-          bankerGroup.concat(playerGroup).forEach(bet => {
-            const playerRoundKey = `${bet[USER_ID]}-${bet[GAME_ID]}`;
-            if (!processedPlayerRoundPairs.has(playerRoundKey)) {
-              processedPlayerRoundPairs.add(playerRoundKey);
-              oppositeBets.push(bet);
-              updatePlayerStats(bet[USER_ID], true, parseBetAmount(bet), roundId);
+                    updatedPlayerIds.add(otherBet["User Id"]);
+                    foundMatch = true;
+                }
             }
-          });
+        });
+
+        if (foundMatch) {
+            console.log(`✅ Match found for Game ID ${bet.gameid}.`);
+            matchGameIds.add(bet.gameid);
         } else {
-          bankerGroup.concat(playerGroup).forEach(bet => {
-            updatePlayerStats(bet[USER_ID], false, parseBetAmount(bet), roundId);
-          });
+            console.log(`❌ No match found for Game ID ${bet.gameid}.`);
+            noMatchGameIds.add(bet.gameid);
         }
-      };
+    }
 
-      // Check individual bets
-      bankerBets.forEach(bankerBet => {
-        playerBets.forEach(playerBet => {
-          checkOppositeBets([bankerBet], [playerBet]);
+    if (updatedPlayerIds.size > initialPlayerIds.size) {
+        const allGameData = await window.electron.executeQuery({
+            clientType,
+            query: `SELECT "gameid", "User Id", "Bet Position", "amount_eur" FROM public.fraud_round_history WHERE "User Id" IN (${Array.from(updatedPlayerIds).map(id => `'${id}'`).join(', ')})`
         });
-      });
 
-      // Check group bets
-      const checkGroupBets = (mainBets, oppositeBets) => {
-        for (let i = 0; i < mainBets.length; i++) {
-          let mainGroup = [mainBets[i]];
-          let oppositeGroup = [];
-          let oppositeTotal = 0;
-          const mainTotal = parseBetAmount(mainBets[i]);
+        // Create a formatter for Euro currency
+        const euroFormatter = new Intl.NumberFormat('en-IE', {
+            style: 'currency',
+            currency: 'EUR',
+        });
 
-          for (let j = 0; j < oppositeBets.length; j++) {
-            oppositeTotal += parseBetAmount(oppositeBets[j]);
-            oppositeGroup.push(oppositeBets[j]);
+        // Initialize playerStats for each updated player
+        const playerStats = {};
+        updatedPlayerIds.forEach(playerId => {
+            playerStats[playerId] = {
+                gamesInCommon: 0,
+                gamesNotInCommon: 0,
+                gamesInCommonWager: 0,
+                gamesNotInCommonWager: 0,
+                percentageCommonRounds: 0,
+                percentageCommonWager: 0
+            };
+        });
 
-            if (Math.abs(mainTotal - oppositeTotal) / Math.max(mainTotal, oppositeTotal) <= 0.05) {
-              checkOppositeBets(mainGroup, oppositeGroup);
-              break;
+        // Map each game to the set of initial players who participated
+        const gameToInitialPlayers = {};
+        allGameData.forEach(entry => {
+            const { gameid, "User Id": userId } = entry;
+            if (initialPlayerIds.has(userId)) {
+                if (!gameToInitialPlayers[gameid]) {
+                    gameToInitialPlayers[gameid] = [];
+                }
+                gameToInitialPlayers[gameid].push(entry);
             }
-          }
-        }
-      };
-
-      checkGroupBets(bankerBets, playerBets);
-      checkGroupBets(playerBets, bankerBets);
-
-      newQueryResult.push(...oppositeBets);
-
-      const newRounds = roundBets.map(bet => bet[GAME_ID]).filter(rid => !processedRounds.has(rid));
-      for (const newRoundId of newRounds) {
-        await processRound(newRoundId);
-      }
-    };
-
-    const initialRounds = [...new Set(queryResult.map(row => row[GAME_ID]))];
-    for (const roundId of initialRounds) {
-      await processRound(roundId);
-    }
-
-    // Identify potential false positives dynamically
-    const falsePositivePlayers = new Set();
-    const totalRoundsByUser = {};
-
-    // First pass: Count total rounds per user
-    for (const userId of Object.keys(playerRoundStats)) {
-      totalRoundsByUser[userId] = playerRoundStats[userId].totalRounds.size;
-    }
-
-    // Second pass: Identify rounds with more than two players and flag isolated players
-    for (const roundId of processedRounds) {
-      const roundPlayers = new Set(newQueryResult.filter(bet => bet[GAME_ID] === roundId).map(bet => bet[USER_ID]));
-      if (roundPlayers.size > 2) {
-        roundPlayers.forEach(player => {
-          if (totalRoundsByUser[player] === 1) {
-            falsePositivePlayers.add(player);
-          }
         });
-      }
-    }
 
-    // Calculate statistics and filter out players not meeting the 50% rule or identified as false positives
-    const finalPlayerIds = Object.keys(playerRoundStats).filter(id => {
-      const stats = playerRoundStats[id];
-      const totalWager = stats.oppositeWager + stats.nonOppositeWager;
-      return stats.oppositeWager >= 0.5 * totalWager && !falsePositivePlayers.has(id); // Exclude identified false positives
-    });
+        console.log("📊 Game to Initial Players Mapping:", gameToInitialPlayers); // Log mapping for debugging
 
-    if (finalPlayerIds.length === 0) {
-      // Clear the table if no players meet the opposite betting criteria
-      setQueryResult([]);
-      setBankerTotal(0);
-      setPlayerTotal(0);
-      setPlayerStats([]);
+        // Set to keep track of processed rounds
+        const processedRounds = new Set();
+
+        // Iterate through all game data and update player stats
+        allGameData.forEach(entry => {
+            const { gameid, "User Id": userId, amount_eur, "Bet Position": betPosition } = entry;
+            const roundKey = `${gameid}-${userId}`;
+            if (!updatedPlayerIds.has(userId) || processedRounds.has(roundKey)) return;
+
+            const initialPlayerBets = gameToInitialPlayers[gameid] || [];
+            let hasInitialPlayer = false;
+
+            // Check each initial player's bet to see if it meets the criteria for a common game
+            for (const initialBet of initialPlayerBets) {
+                if (initialBet["Bet Position"] !== betPosition) {
+                    const lowerBound = initialBet.amount_eur * 0.9;
+                    const upperBound = initialBet.amount_eur * 1.1;
+                    if (amount_eur >= lowerBound && amount_eur <= upperBound) {
+                        hasInitialPlayer = true;
+                        break;
+                    }
+                }
+            }
+
+            if (hasInitialPlayer) {
+                playerStats[userId].gamesInCommon++;
+                playerStats[userId].gamesInCommonWager += amount_eur || 0; // Ensure we have a valid value
+            } else {
+                playerStats[userId].gamesNotInCommon++;
+                playerStats[userId].gamesNotInCommonWager += amount_eur || 0; // Ensure we have a valid value
+            }
+
+            // Mark this round as processed
+            processedRounds.add(roundKey);
+
+            // Debugging logs to check what is happening
+            console.log(`Game ID: ${gameid}, User ID: ${userId}, Has Initial Player: ${hasInitialPlayer}, Bet Amount: ${amount_eur}`);
+        });
+
+        // Calculate Total Rounds, percentage of common rounds, and percentage of common wager after counting
+        Object.entries(playerStats).forEach(([playerId, stats]) => {
+            stats.TotalRounds = stats.gamesInCommon + stats.gamesNotInCommon;
+            const totalWager = stats.gamesInCommonWager + stats.gamesNotInCommonWager;
+            if (stats.TotalRounds > 0) {
+                stats.percentageCommonRounds = (stats.gamesInCommon / stats.TotalRounds) * 100;
+            }
+            if (totalWager > 0) {
+                stats.percentageCommonWager = (stats.gamesInCommonWager / totalWager) * 100;
+            }
+
+            // Check if player meets the suspicious criteria
+            if (stats.percentageCommonRounds >= 90 && stats.percentageCommonWager >= 90) {
+                suspiciousPlayerIds.add(playerId);
+            }
+        });
+
+        console.log("📊 Statistics of Rounds with and without Initial Players:");
+        Object.entries(playerStats).forEach(([playerId, stats]) => {
+            console.log(`🆔 Player ID: ${playerId}`);
+            console.log(`  - Rounds with Initial Players: ${stats.gamesInCommon}`);
+            console.log(`  - Rounds with Initial Players Wager: ${euroFormatter.format(stats.gamesInCommonWager)}`);
+            console.log(`  - Rounds without Initial Players: ${stats.gamesNotInCommon}`);
+            console.log(`  - Rounds without Initial Players Wager: ${euroFormatter.format(stats.gamesNotInCommonWager)}`);
+            console.log(`  - Total Rounds: ${stats.TotalRounds}`);
+            console.log(`  - Percentage of Common Rounds: ${stats.percentageCommonRounds.toFixed(2)}%`);
+            console.log(`  - Percentage of Common Wager: ${stats.percentageCommonWager.toFixed(2)}%`);
+            if (suspiciousPlayerIds.has(playerId)) {
+                console.log(`  - 🚩 This player is flagged as suspicious!`);
+            }
+        });
     } else {
-      const filteredQueryResult = newQueryResult.filter(bet => finalPlayerIds.includes(bet[USER_ID]));
-      setQueryResult(filteredQueryResult);
-      setBankerTotal(bankerSum.toFixed(2));
-      setPlayerTotal(playerSum.toFixed(2));
-      setPlayerStats(finalPlayerIds.map(id => {
-        const stats = playerRoundStats[id];
-        const totalWager = stats.oppositeWager + stats.nonOppositeWager;
-        const oppositePercentage = ((stats.oppositeWager / totalWager) * 100).toFixed(2);
-        return {
-          id,
-          totalRounds: stats.totalRounds.size,
-          oppositeRounds: stats.oppositeRounds.size,
-          oppositeWager: stats.oppositeWager.toFixed(2),
-          nonOppositeWager: stats.nonOppositeWager.toFixed(2),
-          oppositePercentage,
-        };
-      }));
+        console.log("🚫 No New Players with Opposite Bets Found.");
     }
 
-    console.log('Final Query Result:', newQueryResult);
     setFinding(false);
-  }, [queryResult, clientType, shouldStop]);
+}, [queryResult, clientType, playerIds]);
+
+
+
+
+
+
+
+
 
   const stopFinding = () => {
     setShouldStop(true);
@@ -302,8 +292,8 @@ const OppositeBetting = ({ clientType }) => {
           >
             <option value="Today">Today</option>
             <option value="Yesterday">Yesterday</option>
-          </select>
-        </div>
+          </select
+        ></div>
         <button
           onClick={executeQuery}
           className="mt-4 w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
@@ -345,7 +335,7 @@ const OppositeBetting = ({ clientType }) => {
           <div>
             <h3 className="text-lg font-semibold mt-6">Player Statistics</h3>
             <table className="min-w-full divide-y divide-gray-200">
-              <thead>
+            <thead>
                 <tr>
                   <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User ID</th>
                   <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Rounds</th>
@@ -354,7 +344,8 @@ const OppositeBetting = ({ clientType }) => {
                   <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Non-Opposite Wager</th>
                   <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">% Opposite Wager</th>
                 </tr>
-              </thead>
+            </thead>
+
               <tbody className="bg-white divide-y divide-gray-200">
                 {playerStats.map(stat => (
                   <tr key={stat.id}>
